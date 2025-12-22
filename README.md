@@ -6,7 +6,7 @@ A Bash utility toolkit for detecting, validating, and monitoring public IP addre
 
 | Script | Version | Purpose | Exported Function |
 |--------|---------|---------|-------------------|
-| `internetip` | 2.2.0 | Fetch and display public IP | `get_internet_ip` |
+| `internetip` | 2.3.0 | Fetch and display public IP | `get_internet_ip` |
 | `validip` | 1.1.0 | Validate IPv4 address format | `valid_ip` |
 | `watchip` | 2.0.0 | Monitor for IP changes | `watch_ip` |
 
@@ -41,12 +41,15 @@ internetip -s           # Fetch IP and call callback URL
 internetip -q           # Quiet mode (suppress info messages)
 internetip -v           # Verbose mode
 internetip -sv          # Combined options
+internetip --show-url   # Show current URL configuration
 internetip -h           # Show help
 
 # Administration (requires root)
 sudo internetip --install    # Install to /usr/local/bin
 sudo internetip --update     # Git pull + reinstall
 sudo internetip --uninstall  # Remove from /usr/local/bin
+sudo internetip --set-url    # Configure callback URL interactively
+sudo internetip --unset-url  # Remove URL configuration
 ```
 
 **Options:**
@@ -59,12 +62,31 @@ sudo internetip --uninstall  # Remove from /usr/local/bin
 | `--install` | Install scripts to /usr/local/bin (requires root) |
 | `--update` | Git pull and reinstall (requires root) |
 | `--uninstall` | Remove scripts from /usr/local/bin (requires root) |
+| `--set-url` | Configure system-wide callback URL (requires root) |
+| `--show-url` | Show current callback URL configuration |
+| `--unset-url` | Remove system-wide URL configuration (requires root) |
 
-**Environment variables:**
+**URL Configuration:**
+
+The callback URL supports template variables that are expanded at runtime:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `$HOSTNAME` | System hostname | `webserver01` |
+| `$GATEWAY_IP` | Fetched public IP | `203.0.113.45` |
+| `$SCRIPT_NAME` | Script name | `internetip` |
+| `$VERSION` | Script version | `2.3.0` |
 
 ```bash
-# Override callback URL for -s option
-INTERNETIP_CALL_URL=http://example.com/ip internetip -s
+# Configure system-wide (writes to /etc/profile.d/ and systemd)
+sudo internetip --set-url
+# Enter: https://example.com/ip.php?host=$HOSTNAME&ip=$GATEWAY_IP
+
+# View current configuration
+internetip --show-url
+
+# Remove configuration
+sudo internetip --unset-url
 ```
 
 When run as root, caches result to `/tmp/GatewayIP`.
