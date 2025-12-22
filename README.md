@@ -6,7 +6,7 @@ A Bash utility toolkit for detecting, validating, and monitoring public IP addre
 
 | Script | Version | Purpose | Exported Function |
 |--------|---------|---------|-------------------|
-| `internetip` | 2.1.0 | Fetch and display public IP | `get_internet_ip` |
+| `internetip` | 2.2.0 | Fetch and display public IP | `get_internet_ip` |
 | `validip` | 1.1.0 | Validate IPv4 address format | `valid_ip` |
 | `watchip` | 2.0.0 | Monitor for IP changes | `watch_ip` |
 
@@ -38,6 +38,9 @@ Installs symlinks to `/usr/local/bin` and bash completion to `/etc/bash_completi
 ```bash
 internetip              # Display current public IP
 internetip -s           # Fetch IP and call callback URL
+internetip -q           # Quiet mode (suppress info messages)
+internetip -v           # Verbose mode
+internetip -sv          # Combined options
 internetip -h           # Show help
 
 # Administration (requires root)
@@ -46,13 +49,27 @@ sudo internetip --update     # Git pull + reinstall
 sudo internetip --uninstall  # Remove from /usr/local/bin
 ```
 
-Environment variables:
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-s, -c, --call-url` | Call callback URL after fetching IP |
+| `-v, --verbose` | Increase verbosity |
+| `-q, --quiet` | Suppress informational output |
+| `--install` | Install scripts to /usr/local/bin (requires root) |
+| `--update` | Git pull and reinstall (requires root) |
+| `--uninstall` | Remove scripts from /usr/local/bin (requires root) |
+
+**Environment variables:**
+
 ```bash
 # Override callback URL for -s option
 INTERNETIP_CALL_URL=http://example.com/ip internetip -s
 ```
 
 When run as root, caches result to `/tmp/GatewayIP`.
+
+**Output icons:** Messages use status icons for clarity: ◉ info, ▲ warn, ✓ success, ✗ error.
 
 ### validip
 
