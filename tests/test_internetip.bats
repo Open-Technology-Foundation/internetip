@@ -110,7 +110,10 @@ load 'helpers/setup'
 
 @test "internetip does not create /tmp/GatewayIP when non-root" {
   skip_if_root
-  rm -f /tmp/GatewayIP
+  # Skip if file exists and we can't remove it (owned by root)
+  if [[ -f /tmp/GatewayIP ]] && ! rm -f /tmp/GatewayIP 2>/dev/null; then
+    skip "Cannot remove /tmp/GatewayIP (owned by root)"
+  fi
   run "$BATS_TEST_DIRNAME/../internetip"
   [ "$status" -eq 0 ]
   [ ! -f /tmp/GatewayIP ]
@@ -155,6 +158,111 @@ load 'helpers/setup'
   [ "$status" -eq 0 ]
   [[ "$output" == *"INTERNETIP_CALL_URL"* ]]
   [[ "$output" == *"Callback URL"* ]]
+}
+
+# =============================================================================
+# Install/Update/Uninstall Tests
+# =============================================================================
+
+@test "help shows --install option" {
+  run "$BATS_TEST_DIRNAME/../internetip" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--install"* ]]
+}
+
+@test "help shows --update option" {
+  run "$BATS_TEST_DIRNAME/../internetip" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--update"* ]]
+}
+
+@test "help shows --uninstall option" {
+  run "$BATS_TEST_DIRNAME/../internetip" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--uninstall"* ]]
+}
+
+@test "--install requires root" {
+  skip_if_root
+  run "$BATS_TEST_DIRNAME/../internetip" --install
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"requires root"* ]]
+}
+
+@test "--update requires root" {
+  skip_if_root
+  run "$BATS_TEST_DIRNAME/../internetip" --update
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"requires root"* ]]
+}
+
+@test "--uninstall requires root" {
+  skip_if_root
+  run "$BATS_TEST_DIRNAME/../internetip" --uninstall
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"requires root"* ]]
+}
+
+@test "--install creates symlinks in /usr/local/bin" {
+  skip_if_not_root
+  # Clean up first
+  rm -f /usr/local/bin/{internetip,validip,watchip}
+
+  run "$BATS_TEST_DIRNAME/../internetip" --install
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Installation complete"* ]]
+
+  # Verify symlinks exist
+  [ -L /usr/local/bin/internetip ]
+  [ -L /usr/local/bin/validip ]
+  [ -L /usr/local/bin/watchip ]
+}
+
+@test "--install creates bash completion" {
+  skip_if_not_root
+  run "$BATS_TEST_DIRNAME/../internetip" --install
+  [ "$status" -eq 0 ]
+
+  # Verify bash completion installed (if directory exists)
+  if [[ -d /etc/bash_completion.d ]]; then
+    [ -L /etc/bash_completion.d/internetip ]
+  fi
+}
+
+@test "--uninstall removes symlinks" {
+  skip_if_not_root
+  # Ensure installed first
+  "$BATS_TEST_DIRNAME/../internetip" --install >/dev/null
+
+  run "$BATS_TEST_DIRNAME/../internetip" --uninstall
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Uninstalled"* ]]
+
+  # Verify symlinks removed
+  [ ! -e /usr/local/bin/internetip ]
+  [ ! -e /usr/local/bin/validip ]
+  [ ! -e /usr/local/bin/watchip ]
+}
+
+@test "--install is idempotent (can run twice)" {
+  skip_if_not_root
+  run "$BATS_TEST_DIRNAME/../internetip" --install
+  [ "$status" -eq 0 ]
+
+  # Run again - should succeed
+  run "$BATS_TEST_DIRNAME/../internetip" --install
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Installation complete"* ]]
+}
+
+@test "--update runs git pull" {
+  skip_if_not_root
+  # Ensure installed
+  "$BATS_TEST_DIRNAME/../internetip" --install >/dev/null
+
+  run "$BATS_TEST_DIRNAME/../internetip" --update
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Updated from git"* ]] || [[ "$output" == *"Already up"* ]]
 }
 
 #fin
