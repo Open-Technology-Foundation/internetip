@@ -37,14 +37,14 @@ EOF
 }
 
 main() {
-  local verbose=0 run_root=0 run_all=0
+  local run_root=0 run_all=0
   local -a test_files=()
   local -a bats_opts=()
 
   while (($#)); do
     case $1 in
       -h|--help)    usage; return 0 ;;
-      -v|--verbose) verbose=1; bats_opts+=(--tap) ;;
+      -v|--verbose) bats_opts+=(--tap) ;;
       -r|--root)    run_root=1 ;;
       -a|--all)     run_all=1 ;;
       *.bats)       test_files+=("$1") ;;

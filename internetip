@@ -49,10 +49,10 @@ readonly -- VERSION SCRIPT_PATH SCRIPT_DIR SCRIPT_NAME GATEWAY_IP_FILE
 declare -i VERBOSE=1
 # Color definitions
 if [[ -t 1 && -t 2 ]]; then
-  readonly -- RED=$'\033[0;31m' GREEN=$'\033[0;32m' YELLOW=$'\033[0;33m' CYAN=$'\033[0;36m' BOLD=$'\033[1m' NC=$'\033[0m'
+  readonly -- RED=$'\033[0;31m' GREEN=$'\033[0;32m' YELLOW=$'\033[0;33m' CYAN=$'\033[0;36m' NC=$'\033[0m'
 else
   VERBOSE=0
-  readonly -- RED='' GREEN='' YELLOW='' CYAN='' BOLD='' NC=''
+  readonly -- RED='' GREEN='' YELLOW='' CYAN='' NC=''
 fi
 # Utility functions
 _msg() {
