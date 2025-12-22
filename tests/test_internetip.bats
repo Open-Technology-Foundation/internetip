@@ -467,4 +467,29 @@ load 'helpers/setup'
   grep -q '\$HOSTNAME' /etc/systemd/system-environment-generators/internetip
 }
 
+@test "--set-url accepts URL as command-line argument" {
+  skip_if_not_root
+  # Clean up first
+  rm -f /etc/profile.d/internetip.sh
+
+  # Run with URL as argument (not interactive)
+  run "$BATS_TEST_DIRNAME/../internetip" --set-url 'https://test.com?h=$HOSTNAME'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"URL template configured"* ]]
+
+  # Verify file contains the URL
+  grep -q 'https://test.com?h=\$HOSTNAME' /etc/profile.d/internetip.sh
+}
+
+@test "--set-url=URL equals syntax works" {
+  skip_if_not_root
+  # Run with equals syntax
+  run "$BATS_TEST_DIRNAME/../internetip" --set-url='https://equals.test/api'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"URL template configured"* ]]
+
+  # Verify file contains the URL
+  grep -q 'https://equals.test/api' /etc/profile.d/internetip.sh
+}
+
 #fin

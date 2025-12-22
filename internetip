@@ -81,11 +81,15 @@ die() { (($# > 1)) && error "${@:2}"; exit "${1:-0}"; }
 # Expand allowed template variables in URL
 # Usage: expanded=$(expand_url_template "$template" "$gateway_ip")
 expand_url_template() {
-  local -- url="$1" gateway_ip="${2:-}"
+  local -- url="$1" gateway_ip="${2:-$GATEWAY_IP}"
   url="${url//\$HOSTNAME/$HOSTNAME}"
+  url="${url//HOSTNAME/$HOSTNAME}"
   url="${url//\$GATEWAY_IP/$gateway_ip}"
+  url="${url//GATEWAY_IP/$gateway_ip}"
   url="${url//\$SCRIPT_NAME/$SCRIPT_NAME}"
+  url="${url//SCRIPT_NAME/$SCRIPT_NAME}"
   url="${url//\$VERSION/$VERSION}"
+  url="${url//VERSION/$VERSION}"
   printf '%s' "$url"
 }
 
@@ -103,7 +107,7 @@ Options:
   --install           Install scripts to /usr/local/bin (requires root)
   --update            Git pull and reinstall (requires root)
   --uninstall         Remove scripts from /usr/local/bin (requires root)
-  --set-url           Configure system-wide callback URL (requires root)
+  --set-url [URL]     Configure system-wide callback URL (requires root)
   --show-url          Show current callback URL configuration
   --unset-url         Remove system-wide URL configuration (requires root)
   -h, --help          Display this help
@@ -133,6 +137,7 @@ Examples:
   sudo $SCRIPT_NAME --update         # Update from git + reinstall
   sudo $SCRIPT_NAME --uninstall      # Remove from /usr/local/bin
   sudo $SCRIPT_NAME --set-url        # Configure callback URL interactively
+  sudo $SCRIPT_NAME --set-url 'https://example.com?host=\$HOSTNAME&ip=\$GATEWAY_IP'
   sudo $SCRIPT_NAME --unset-url      # Remove URL configuration
 
   source $SCRIPT_NAME
@@ -205,15 +210,19 @@ do_uninstall() {
 do_set_url() {
   ((EUID == 0)) || die 1 'Requires root.' "Run: sudo $SCRIPT_NAME --set-url"
 
-  local -- url current="${INTERNETIP_CALL_URL:-}"
-  #shellcheck disable=SC2016  # Intentionally showing literal variable names
-  echo 'Enter callback URL template (variables: $HOSTNAME $GATEWAY_IP $SCRIPT_NAME $VERSION)'
-  [[ -n $current ]] && echo "Current: $current"
-  read -r -p '> ' url
-  # Use current if user just presses Enter, but require input if none exists
+  local -- url="${1:-}" current="${INTERNETIP_CALL_URL:-}"
+
+  # If no URL provided as argument, prompt interactively
   if [[ -z $url ]]; then
-    [[ -n $current ]] || die 1 'No URL provided and no existing URL configured'
-    url="$current"
+    #shellcheck disable=SC2016  # Intentionally showing literal variable names
+    echo 'Enter callback URL template (variables: $HOSTNAME $GATEWAY_IP $SCRIPT_NAME $VERSION)'
+    [[ -n $current ]] && echo "Current: $current"
+    read -r -p '> ' url
+    # Use current if user just presses Enter, but require input if none exists
+    if [[ -z $url ]]; then
+      [[ -n $current ]] || die 1 'No URL provided and no existing URL configured'
+      url="$current"
+    fi
   fi
 
   # Write "$INTERNETIP_PROFILE" (stores template unexpanded)
@@ -265,14 +274,29 @@ main() {
   # Parse options
   while (($#)); do
     case $1 in
+      install|--install)
+                    do_install; return 0 ;;
+      update|--update)
+                    do_update; return 0 ;;
+      uninstall|--uninstall)
+                    do_uninstall; return 0 ;;
+
+      seturl=*|--set-url=*)
+                    do_set_url "${1#*=}"; return 0 ;;
+      seturl|--set-url)
+                    # Check if next arg exists and is not an option
+                    if [[ -n ${2:-} && $2 != -* ]]; then
+                      do_set_url "$2"; return 0
+                    fi
+                    do_set_url; return 0 ;;
+      showurl|--show-url)
+                    do_show_url; return 0 ;;
+      unseturl|--unset-url)
+                    do_unset_url; return 0 ;;
+
       -s|-c|--call-url)
                     call_url=1 ;;
-      --install)    do_install; return 0 ;;
-      --update)     do_update; return 0 ;;
-      --uninstall)  do_uninstall; return 0 ;;
-      --set-url)    do_set_url; return 0 ;;
-      --show-url)   do_show_url; return 0 ;;
-      --unset-url)  do_unset_url; return 0 ;;
+
       -v|--verbose) VERBOSE+=1 ;;
       -q|--quiet)   VERBOSE=0 ;;
       -V|--version) echo "$SCRIPT_NAME $VERSION"; return 0 ;;

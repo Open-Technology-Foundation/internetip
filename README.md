@@ -49,6 +49,7 @@ sudo internetip --install    # Install to /usr/local/bin
 sudo internetip --update     # Git pull + reinstall
 sudo internetip --uninstall  # Remove from /usr/local/bin
 sudo internetip --set-url    # Configure callback URL interactively
+sudo internetip --set-url 'https://example.com?host=$HOSTNAME&ip=$GATEWAY_IP'
 sudo internetip --unset-url  # Remove URL configuration
 ```
 
@@ -62,7 +63,7 @@ sudo internetip --unset-url  # Remove URL configuration
 | `--install` | Install scripts to /usr/local/bin (requires root) |
 | `--update` | Git pull and reinstall (requires root) |
 | `--uninstall` | Remove scripts from /usr/local/bin (requires root) |
-| `--set-url` | Configure system-wide callback URL (requires root) |
+| `--set-url [URL]` | Configure system-wide callback URL (requires root) |
 | `--show-url` | Show current callback URL configuration |
 | `--unset-url` | Remove system-wide URL configuration (requires root) |
 
@@ -177,10 +178,10 @@ sudo bats tests/            # Root-required tests
 | Test File | Tests | Coverage |
 |-----------|-------|----------|
 | `test_validip.bats` | 20 | IP validation, CLI options, sourcing |
-| `test_internetip.bats` | 54 | Network fetch, caching, verbose/quiet, install/update/uninstall, URL config |
+| `test_internetip.bats` | 56 | Network fetch, caching, verbose/quiet, install/update/uninstall, URL config |
 | `test_watchip.bats` | 21 | Change detection, file ops, root check |
 
-**Total: 95 tests** covering:
+**Total: 97 tests** covering:
 - Valid/invalid IP formats
 - Executable mode (options, exit codes)
 - Sourced mode (function exports, no side effects)
