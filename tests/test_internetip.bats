@@ -95,6 +95,60 @@ load 'helpers/setup'
 }
 
 # =============================================================================
+# Verbose/Quiet Mode Tests
+# =============================================================================
+
+@test "internetip -q returns valid IP" {
+  run "$BATS_TEST_DIRNAME/../internetip" -q
+  [ "$status" -eq 0 ]
+  is_valid_ipv4_format "$output"
+}
+
+@test "internetip --quiet returns valid IP" {
+  run "$BATS_TEST_DIRNAME/../internetip" --quiet
+  [ "$status" -eq 0 ]
+  is_valid_ipv4_format "$output"
+}
+
+@test "internetip -v returns valid IP" {
+  run "$BATS_TEST_DIRNAME/../internetip" -v
+  [ "$status" -eq 0 ]
+  # Output contains IP (may have additional verbose output)
+  [[ "$output" =~ [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ]]
+}
+
+@test "internetip --verbose returns valid IP" {
+  run "$BATS_TEST_DIRNAME/../internetip" --verbose
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ]]
+}
+
+@test "internetip -c is alias for -s (help shows it)" {
+  run "$BATS_TEST_DIRNAME/../internetip" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"-s, -c, --call-url"* ]]
+}
+
+@test "internetip combined short options -qV works" {
+  run "$BATS_TEST_DIRNAME/../internetip" -qV
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"internetip"* ]]
+  [[ "$output" == *"2."* ]]
+}
+
+@test "help shows -v/--verbose option" {
+  run "$BATS_TEST_DIRNAME/../internetip" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--verbose"* ]]
+}
+
+@test "help shows -q/--quiet option" {
+  run "$BATS_TEST_DIRNAME/../internetip" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--quiet"* ]]
+}
+
+# =============================================================================
 # Root Behavior Tests
 # =============================================================================
 
