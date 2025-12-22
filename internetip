@@ -35,16 +35,20 @@ declare -fx get_internet_ip internetip
 set -euo pipefail
 shopt -s inherit_errexit shift_verbose extglob nullglob
 
-VERSION='2.2.0'
+VERSION='2.3.0'
+
 SCRIPT_PATH="$(realpath -e -- "$0")"
 SCRIPT_DIR="${SCRIPT_PATH%/*}"
 SCRIPT_NAME="${SCRIPT_PATH##*/}"
-GATEWAY_IP_FILE=/tmp/GatewayIP
+
+GATEWAY_IP_FILE=${GATEWAY_IP_FILE:-/tmp/GatewayIP}
 #shellcheck disable=SC2034
 readonly -- VERSION SCRIPT_PATH SCRIPT_DIR SCRIPT_NAME GATEWAY_IP_FILE
 
-# Configurable callback URL (can be overridden via environment)
-: "${INTERNETIP_CALL_URL:=https://okusiassociates.com/ip.php?1=**Farkle420**&2=$HOSTNAME}"
+declare -- GATEWAY_IP=$(head -n1 "$GATEWAY_IP_FILE" 2>/dev/null || true)
+
+# Callback URL template (set via --set-url, no default)
+: "${INTERNETIP_CALL_URL:=}"
 
 declare -i VERBOSE=1
 # Color definitions
@@ -73,6 +77,16 @@ success() { ((VERBOSE)) || return 0; >&2 _msg "$@" || return 0; }
 error() { >&2 _msg "$@"; }
 die() { (($# > 1)) && error "${@:2}"; exit "${1:-0}"; }
 
+# Expand allowed template variables in URL
+# Usage: expanded=$(expand_url_template "$template" "$gateway_ip")
+expand_url_template() {
+  local -- url="$1" gateway_ip="${2:-}"
+  url="${url//\$HOSTNAME/$HOSTNAME}"
+  url="${url//\$GATEWAY_IP/$gateway_ip}"
+  url="${url//\$SCRIPT_NAME/$SCRIPT_NAME}"
+  url="${url//\$VERSION/$VERSION}"
+  printf '%s' "$url"
+}
 
 show_help() {
   cat <<EOT
@@ -88,11 +102,15 @@ Options:
   --install           Install scripts to /usr/local/bin (requires root)
   --update            Git pull and reinstall (requires root)
   --uninstall         Remove scripts from /usr/local/bin (requires root)
+  --set-url           Configure system-wide callback URL (requires root)
+  --show-url          Show current callback URL configuration
+  --unset-url         Remove system-wide URL configuration (requires root)
   -h, --help          Display this help
   -V, --version       Display version
 
 Environment:
-  INTERNETIP_CALL_URL  Callback URL for -s option (default: okusiassociates.com)
+  INTERNETIP_CALL_URL  Callback URL template for -s option (set via --set-url)
+                       Template variables: \$HOSTNAME \$GATEWAY_IP \$SCRIPT_NAME \$VERSION
 
 Exported Functions (when sourced):
   get_internet_ip   Fetch and validate public IP, returns via stdout
@@ -106,10 +124,13 @@ Notes:
 Examples:
   $SCRIPT_NAME                       # Display current public IP
   $SCRIPT_NAME -s                    # Fetch IP and call callback URL
+  $SCRIPT_NAME --show-url            # Show current URL configuration
 
   sudo $SCRIPT_NAME --install        # Install to /usr/local/bin
   sudo $SCRIPT_NAME --update         # Update from git + reinstall
   sudo $SCRIPT_NAME --uninstall      # Remove from /usr/local/bin
+  sudo $SCRIPT_NAME --set-url        # Configure callback URL interactively
+  sudo $SCRIPT_NAME --unset-url      # Remove URL configuration
 
   source $SCRIPT_NAME
   ip=\$(get_internet_ip)             # Use in scripts
@@ -118,9 +139,13 @@ EOT
 }
 
 internetip_call_url() {
-  info "Calling ${INTERNETIP_CALL_URL@Q}"
-  curl -sfk --max-time 10 "$INTERNETIP_CALL_URL" >/dev/null \
-    || die 1 "Error calling ${INTERNETIP_CALL_URL@Q}"
+  [[ -n ${INTERNETIP_CALL_URL:-} ]] \
+    || die 1 "INTERNETIP_CALL_URL not set. Run: sudo $SCRIPT_NAME --set-url"
+  local -- url
+  url=$(expand_url_template "$INTERNETIP_CALL_URL" "$1")
+  info "Calling ${url@Q}"
+  curl -sfk --max-time 10 "$url" >/dev/null \
+    || die 1 "Error calling ${url@Q}"
 }
 
 do_install() {
@@ -131,17 +156,17 @@ do_install() {
 
   for script in "${scripts[@]}"; do
     [[ -x $SCRIPT_DIR/$script ]] || die 1 "Script not found: $SCRIPT_DIR/$script"
-    ln -sf "$SCRIPT_DIR/$script" "/usr/local/bin/$script"
+    ln -sf "$SCRIPT_DIR"/"$script" /usr/local/bin/"$script"
     info "Installed: /usr/local/bin/$script -> $SCRIPT_DIR/$script"
   done
 
   # Bash completion
-  if [[ -d /etc/bash_completion.d && -f $SCRIPT_DIR/internetip.bash_completion ]]; then
+  if [[ -d /etc/bash_completion.d && -f "$SCRIPT_DIR"/internetip.bash_completion ]]; then
     ln -sf "$SCRIPT_DIR/internetip.bash_completion" "/etc/bash_completion.d/internetip"
-    info "Installed: /etc/bash_completion.d/internetip"
+    info 'Installed: /etc/bash_completion.d/internetip'
   fi
 
-  success "Installation complete"
+  success 'Installation complete'
 }
 
 do_update() {
@@ -151,7 +176,7 @@ do_update() {
 
   [[ -d .git ]] || die 1 "Not a git repository: $SCRIPT_DIR"
 
-  git pull || die 1 "Git pull failed"
+  git pull || die 1 'Git pull failed'
   info 'Updated from git'
 
   # Reinstall if already installed
@@ -166,11 +191,67 @@ do_uninstall() {
   rm -f /usr/local/bin/{internetip,validip,watchip}
   rm -f /etc/bash_completion.d/internetip
 
-  info "Uninstalled internetip, validip, watchip from /usr/local/bin"
+  info 'Uninstalled internetip, validip, watchip from /usr/local/bin'
+}
+
+do_set_url() {
+  ((EUID == 0)) || die 1 "Requires root. Try: sudo $SCRIPT_NAME --set-url"
+
+  local -- url current="${INTERNETIP_CALL_URL:-}"
+  #shellcheck disable=SC2016  # Intentionally showing literal variable names
+  echo 'Enter callback URL template (variables: $HOSTNAME $GATEWAY_IP $SCRIPT_NAME $VERSION)'
+  [[ -n $current ]] && echo "Current: $current"
+  read -r -p '> ' url
+  # Use current if user just presses Enter, but require input if none exists
+  if [[ -z $url ]]; then
+    [[ -n $current ]] || die 1 'No URL provided and no existing URL configured'
+    url="$current"
+  fi
+
+  # Write /etc/profile.d/internetip.sh (stores template unexpanded)
+  cat > /etc/profile.d/internetip.sh << EOF
+# internetip callback URL template - variables expanded at runtime
+export INTERNETIP_CALL_URL='$url'
+EOF
+  chmod 644 /etc/profile.d/internetip.sh
+  info 'Written: /etc/profile.d/internetip.sh'
+
+  # Write systemd generator - escape $ to prevent expansion when generator runs
+  mkdir -p /etc/systemd/system-environment-generators
+  local -- escaped_url="${url//\$/\\\$}"
+  cat > /etc/systemd/system-environment-generators/internetip << EOF
+#!/usr/bin/env bash
+echo "INTERNETIP_CALL_URL=$escaped_url"
+EOF
+  chmod 755 /etc/systemd/system-environment-generators/internetip
+  info 'Written: /etc/systemd/system-environment-generators/internetip'
+
+  systemctl daemon-reload
+  info 'Ran: systemctl daemon-reload'
+
+  success 'URL template configured. Re-login or run: source /etc/profile.d/internetip.sh'
+}
+
+do_show_url() {
+  local -- template="${INTERNETIP_CALL_URL:-<not set>}"
+  echo "Template: $template"
+  echo "Expanded: $(expand_url_template "$template" '<IP>')"
+  if [[ -f /etc/profile.d/internetip.sh ]]; then
+    echo "System:   $(grep -oP "INTERNETIP_CALL_URL='\\K[^']+" /etc/profile.d/internetip.sh 2>/dev/null || echo '<not configured>')"
+  fi
+}
+
+do_unset_url() {
+  ((EUID == 0)) || die 1 "Requires root. Try: sudo $SCRIPT_NAME --unset-url"
+
+  rm -f /etc/profile.d/internetip.sh
+  rm -f /etc/systemd/system-environment-generators/internetip
+  systemctl daemon-reload 2>/dev/null || true
+
+  success 'URL configuration removed'
 }
 
 main() {
-  local -- gatewayip
   local -i call_url=0
 
   # Parse options
@@ -181,6 +262,9 @@ main() {
       --install)    do_install; return 0 ;;
       --update)     do_update; return 0 ;;
       --uninstall)  do_uninstall; return 0 ;;
+      --set-url)    do_set_url; return 0 ;;
+      --show-url)   do_show_url; return 0 ;;
+      --unset-url)  do_unset_url; return 0 ;;
       -v|--verbose) VERBOSE+=1 ;;
       -q|--quiet)   VERBOSE=0 ;;
       -V|--version) echo "$SCRIPT_NAME $VERSION"; return 0 ;;
@@ -194,17 +278,17 @@ main() {
   done
 
   # Fetch and validate IP
-  gatewayip=$(get_internet_ip) || die 1 'Failed to retrieve valid IP'
+  GATEWAY_IP=$(get_internet_ip) || die 1 'Failed to retrieve valid IP'
 
   # Cache to file if root
   if ((EUID == 0)); then
-    echo "$gatewayip" > "$GATEWAY_IP_FILE"
-    chmod 664 "$GATEWAY_IP_FILE"
+    echo "$GATEWAY_IP" > "$GATEWAY_IP_FILE"
+    chmod 666 "$GATEWAY_IP_FILE"
   fi
 
-  echo "$gatewayip"
+  echo "$GATEWAY_IP"
 
-  ((call_url==0)) || internetip_call_url
+  ((call_url==0)) || internetip_call_url "$GATEWAY_IP"
 }
 
 main "$@"
