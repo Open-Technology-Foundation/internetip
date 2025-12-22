@@ -102,6 +102,16 @@ internetip showurl
 sudo internetip unseturl
 ```
 
+**Tip:** When passing URLs through SSH or remote execution tools, use `%26` instead of `&` to prevent shell interpretation:
+```bash
+# Local execution (& works fine)
+sudo internetip seturl='https://example.com?host=HOSTNAME&ip=GATEWAY_IP'
+
+# Remote execution via SSH/scripts (use %26)
+ssh host "internetip seturl='https://example.com?host=HOSTNAME%26ip=GATEWAY_IP'"
+```
+The server decodes `%26` back to `&` automatically.
+
 **Environment Variables:**
 
 | Variable | Description | Default |
