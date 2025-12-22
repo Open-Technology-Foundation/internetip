@@ -1,6 +1,6 @@
 # internetip
 
-A Bash utility toolkit for detecting, validating, and monitoring public IP addresses.
+Bash toolkit for public IP address management. Detect your internet-facing IP, validate addresses, monitor for changes, and notify remote servers - ideal for dynamic DNS, server monitoring, and automated IP registration.
 
 ## Scripts
 
