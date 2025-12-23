@@ -129,7 +129,10 @@ When run as root, caches result to `GATEWAY_IP_FILE`.
 ```bash
 validip 192.168.1.1 && echo valid || echo invalid
 validip 256.1.1.1 && echo valid || echo invalid
+validip -h                      # Show help
 ```
+
+**Exit Codes:** 0 = valid, 1 = invalid, 22 = missing argument or invalid option
 
 ### watchip
 
@@ -225,11 +228,11 @@ sudo bats tests/            # Root-required tests
 
 | Test File | Tests | Coverage |
 |-----------|-------|----------|
-| `test_validip.bats` | 20 | IP validation, CLI options, sourcing |
+| `test_validip.bats` | 21 | IP validation, CLI options, sourcing |
 | `test_internetip.bats` | 56 | Network fetch, caching, verbose/quiet, install/update/uninstall, URL config |
 | `test_watchip.bats` | 30 | Change detection, logging, file ops |
 
-**Total: 106 tests** covering:
+**Total: 107 tests** covering:
 - Valid/invalid IP formats
 - Executable mode (options, exit codes)
 - Sourced mode (function exports, no side effects)
@@ -261,8 +264,6 @@ tests/
 | `internetip.bash_completion` | Tab completion support |
 | `run_tests.sh` | Test runner script |
 | `tests/` | bats-core test suite |
-| `CLAUDE.md` | Claude Code project guidance |
-| `AUDIT-BASH.md` | BCS compliance audit report |
 
 ## License
 
