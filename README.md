@@ -8,7 +8,7 @@ Bash toolkit for public IP address management. Detect your internet-facing IP, v
 |--------|---------|---------|-------------------|
 | `internetip` | 2.3.0 | Fetch and display public IP | `get_internet_ip` |
 | `validip` | 1.1.0 | Validate IPv4 address format | `valid_ip` |
-| `watchip` | 2.0.0 | Monitor for IP changes | `watch_ip` |
+| `watchip` | 2.1.0 | Monitor for IP changes | `watch_ip` |
 
 All scripts follow the [BASH-CODING-STANDARD](https://github.com/Open-Technology-Foundation/bash-coding-standard) and support dual-purpose usage (executable or sourceable as a module).
 
@@ -134,11 +134,28 @@ validip 256.1.1.1 && echo valid || echo invalid
 ### watchip
 
 ```bash
-sudo watchip            # Check for IP change
-sudo watchip -q         # Quiet mode (for cron)
+watchip                 # Check for IP change
+watchip -q              # Quiet mode (for cron)
+watchip --log           # Display log file contents
 ```
 
-Logs IP changes to syslog (`local0.notice`). Typical cron entry:
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-l, --log` | Display log file contents |
+| `-q, --quiet` | Suppress output when IP unchanged |
+| `-h, --help` | Display help |
+| `-V, --version` | Display version |
+
+**Environment Variables:**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LOGFILE` | Log file path | `/var/log/watchip.log` (falls back to `~/.watchip.log`) |
+| `IPFILE` | IP tracking file | `/tmp/internetip.txt` |
+
+Logs state changes (initial IP, IP changes) to `LOGFILE`. When run as root, also logs to syslog (`local0.notice`). Typical cron entry:
 
 ```cron
 */5 * * * * /usr/local/bin/watchip -q
@@ -164,6 +181,7 @@ fi
 source watchip
 result=$(watch_ip /tmp/myapp_ip.txt)
 case $result in
+    initial:*)   echo "First run: ${result#initial:}" ;;
     changed:*)   echo "IP changed!" ;;
     unchanged:*) echo "IP unchanged" ;;
 esac
@@ -209,9 +227,9 @@ sudo bats tests/            # Root-required tests
 |-----------|-------|----------|
 | `test_validip.bats` | 20 | IP validation, CLI options, sourcing |
 | `test_internetip.bats` | 56 | Network fetch, caching, verbose/quiet, install/update/uninstall, URL config |
-| `test_watchip.bats` | 21 | Change detection, file ops, root check |
+| `test_watchip.bats` | 30 | Change detection, logging, file ops |
 
-**Total: 97 tests** covering:
+**Total: 106 tests** covering:
 - Valid/invalid IP formats
 - Executable mode (options, exit codes)
 - Sourced mode (function exports, no side effects)
