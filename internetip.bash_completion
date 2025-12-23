@@ -34,13 +34,16 @@ _validip() {
 }
 
 _watchip() {
-  local cur opts
+  local cur opts commands
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
-  opts="-q --quiet -h --help -V --version"
+  opts="-l --log -q --quiet -h --help -V --version"
+  commands="log"
 
   if [[ $cur == -* ]]; then
     mapfile -t COMPREPLY < <(compgen -W "$opts" -- "$cur")
+  elif ((COMP_CWORD == 1)); then
+    mapfile -t COMPREPLY < <(compgen -W "$commands" -- "$cur")
   fi
 }
 
